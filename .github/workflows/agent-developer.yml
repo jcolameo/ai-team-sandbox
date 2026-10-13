@@ -65,7 +65,6 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "agent/"
-          show_full_output: true
           prompt: |
             Du bist der Developer-Agent dieses Repositories. Halte dich strikt an CLAUDE.md.
 
