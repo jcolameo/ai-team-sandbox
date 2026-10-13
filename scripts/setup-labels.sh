@@ -13,6 +13,8 @@ label "status:refined"      "c5def5" "Spezifiziert, wartet auf Freigabe"
 label "status:ready"        "0e8a16" "Von Jeremy freigegeben"
 label "status:in-progress"  "1d76db" "Agent arbeitet (Sperre)"
 label "status:in-review"    "5319e7" "PR offen, wartet auf Review"
+label "status:rework"       "d93f0b" "Verifier fordert Änderungen, du entscheidest über neuen Lauf"
+label "status:awaiting-merge" "0e8a16" "Verifier empfiehlt Freigabe, wartet auf deinen Merge"
 label "status:needs-human"  "b60205" "Agent gestoppt, Entscheidung nötig"
 
 # Agent-Steuerung

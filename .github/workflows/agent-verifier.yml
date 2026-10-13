@@ -1,0 +1,106 @@
+# Verifier-Agent: unabhängige Prüfung eines Agent-PRs über Abacus (anderes Modell als der Developer).
+#
+# Auslöser: die CI auf einem PR von einem Branch "agent/*" ist grün durchgelaufen.
+#
+# Sicherheit: Dieser Workflow läuft über workflow_run. Workflow-Datei und Skripte kommen damit immer
+# aus dem Standard-Branch (main), nicht aus dem PR. Der PR-Code wird nie ausgeführt, nur als Text
+# (Diff) gelesen. Ein Agent kann den Verifier also nicht in seinem eigenen PR umschreiben.
+#
+# Voraussetzung: Repo-Secret ABACUS_API_KEY.
+
+name: Agent · Verifier
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: verifier-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      startsWith(github.event.workflow_run.head_branch, 'agent/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      REPO: ${{ github.repository }}
+      BRANCH: ${{ github.event.workflow_run.head_branch }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Checkout des Standard-Branches (Skripte und Prompts), nicht des PR.
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: PR-Daten laden (nur Text)
+        id: pr
+        run: |
+          PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR" ]; then echo "Kein offener PR für $BRANCH"; exit 1; fi
+          echo "number=$PR" >> "$GITHUB_OUTPUT"
+          gh pr diff "$PR" --repo "$REPO" > pr.diff
+          gh pr diff "$PR" --repo "$REPO" --name-only > files.txt
+          gh pr view "$PR" --repo "$REPO" --json body --jq '.body // ""' > pr-body.txt
+          ISSUE=$(grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) +#[0-9]+' pr-body.txt | head -1 | grep -oE '[0-9]+' || true)
+          if [ -n "$ISSUE" ]; then
+            gh issue view "$ISSUE" --repo "$REPO" --json title,body > issue.json
+          else
+            echo '{"title":"(kein verknüpftes Issue)","body":""}' > issue.json
+          fi
+
+      - name: Verifier (Abacus)
+        id: verify
+        env:
+          ABACUS_API_KEY: ${{ secrets.ABACUS_API_KEY }}
+          VERIFIER_MODEL: gpt-6-sol
+        run: node scripts/verifier.mjs
+
+      - name: Kommentar und Status setzen
+        if: success()
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+          VERDICT: ${{ steps.verify.outputs.verdict }}
+          ISSUE: ${{ steps.verify.outputs.issue }}
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body-file verifier-comment.md
+          [ -z "$ISSUE" ] && exit 0
+          LABELS=",$(gh issue view "$ISSUE" --repo "$REPO" --json labels --jq '[.labels[].name] | join(",")'),"
+          case "$VERDICT" in
+            APPROVE)
+              gh issue edit "$ISSUE" --repo "$REPO" --add-label "status:awaiting-merge" --remove-label "status:in-review" ;;
+            CHANGES_REQUESTED)
+              if [[ "$LABELS" == *",rework:2,"* ]]; then
+                gh issue edit "$ISSUE" --repo "$REPO" --add-label "status:needs-human" --remove-label "status:in-review"
+                gh issue comment "$ISSUE" --repo "$REPO" \
+                  --body "Zwei Nachbesserungen sind aufgebraucht, der Verifier fordert weiter Änderungen. Bitte selbst entscheiden: PR prüfen, Issue präzisieren oder verwerfen."
+              elif [[ "$LABELS" == *",rework:1,"* ]]; then
+                gh issue edit "$ISSUE" --repo "$REPO" --add-label "rework:2" --add-label "status:rework" --remove-label "rework:1" --remove-label "status:in-review"
+              else
+                gh issue edit "$ISSUE" --repo "$REPO" --add-label "rework:1" --add-label "status:rework" --remove-label "status:in-review"
+              fi ;;
+            NEEDS_HUMAN)
+              gh issue edit "$ISSUE" --repo "$REPO" --add-label "status:needs-human" --remove-label "status:in-review" ;;
+          esac
+
+      - name: Fehler melden
+        if: failure()
+        env:
+          PR: ${{ steps.pr.outputs.number }}
+        run: |
+          [ -n "$PR" ] && gh pr comment "$PR" --repo "$REPO" \
+            --body "Verifier-Lauf fehlgeschlagen, der PR ist ungeprüft. Details: $RUN_URL" || true

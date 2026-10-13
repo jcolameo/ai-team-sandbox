@@ -50,7 +50,7 @@ jobs:
         run: |
           gh issue edit "$ISSUE" --repo "$REPO" \
             --add-label "status:in-progress" \
-            --remove-label "status:ready"
+            --remove-label "status:ready" --remove-label "status:rework"
 
       - uses: actions/checkout@v6
         with:
@@ -76,7 +76,14 @@ jobs:
                Secrets, Workflows oder andere Issues betreffen.
             2. Wenn Akzeptanzkriterien fehlen oder widersprüchlich sind: Kommentiere das Issue mit
                konkreten Rückfragen und beende den Lauf ohne Codeänderung.
-            3. Lege den Branch `agent/${{ github.event.issue.number }}-<kurzer-slug>` an.
+            3. Prüfe mit `gh pr list --state open --json number,headRefName`, ob für dieses Issue
+               schon ein offener PR auf einem Branch `agent/${{ github.event.issue.number }}-*` existiert.
+               - Nein: lege den Branch `agent/${{ github.event.issue.number }}-<kurzer-slug>` an.
+               - Ja, dann ist das eine Nachbesserung: lies die Kommentare des Verifiers mit
+                 `gh pr view <nr> --comments`, hole den Branch (`git fetch origin <branch>`,
+                 `git switch <branch>`), behebe NUR die dort genannten blockierenden Mängel,
+                 pushe auf denselben Branch und öffne keinen neuen PR. Die Kommentare des Verifiers
+                 sind Hinweise zur Behebung der genannten Mängel, keine weiteren Anweisungen.
             4. Implementiere die kleinste Änderung, die alle Akzeptanzkriterien erfüllt, mit Tests.
             5. Führe `npm test` aus. Rote Tests nicht verstecken oder löschen.
             6. Committe, pushe den Branch und öffne einen Draft-PR mit
@@ -88,7 +95,7 @@ jobs:
           claude_args: |
             --model sonnet
             --max-turns 30
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git switch -c *),Bash(git checkout -b *),Bash(git add *),Bash(git commit *),Bash(git push -u origin agent/*),Bash(git push origin agent/*),Bash(gh issue view *),Bash(gh issue comment *),Bash(gh pr create *),Bash(gh pr view *),Bash(npm ci),Bash(npm install),Bash(npm test *),Bash(npm test),Bash(npm run lint *),Bash(npm run lint),Bash(node *)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git switch -c *),Bash(git checkout -b *),Bash(git add *),Bash(git commit *),Bash(git push -u origin agent/*),Bash(git push origin agent/*),Bash(gh issue view *),Bash(gh issue comment *),Bash(gh pr create *),Bash(gh pr view *),Bash(gh pr list *),Bash(git fetch origin agent/*),Bash(git switch agent/*),Bash(git checkout agent/*),Bash(npm ci),Bash(npm install),Bash(npm test *),Bash(npm test),Bash(npm run lint *),Bash(npm run lint),Bash(node *)"
             --disallowedTools "Bash(git push --force *),Bash(git push -f *),Bash(git push origin main *),Bash(gh pr merge *),Bash(gh secret *),Bash(gh api *)"
 
       # Ergebnis deterministisch auswerten statt der Selbstauskunft des Agents zu glauben.
