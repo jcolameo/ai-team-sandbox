@@ -1,6 +1,6 @@
 # Plan Phase 0 und 1: Null-Kosten-Setup
 
-Stand 13.10.2026. Rahmen: Claude Pro (OAuth-Token), vorhandenes Abacus-Abo, GitHub Free, separates Repo `ai-team-sandbox`. Das Arcware-Repo wird nicht angefasst.
+Stand 13.10.2026. Rahmen: Claude Pro (OAuth-Token), vorhandenes Abacus-Abo, GitHub Free, separates Repo `ai-team-sandbox`.
 
 ## Rollen
 
