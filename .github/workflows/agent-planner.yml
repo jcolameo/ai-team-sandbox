@@ -1,0 +1,65 @@
+# Planner-Agent: prüft ein neues Issue über Abacus und kommentiert Rückfragen oder eine Spezifikation.
+# Setzt status:needs-info oder status:refined. Setzt NIE status:ready (das bleibt bei dir).
+#
+# Voraussetzung: Repo-Secret ABACUS_API_KEY.
+# Gate: nur Issues, die der Repo-Besitzer selbst anlegt (das Repo ist öffentlich, Fremde sollen
+# weder Credits verbrauchen noch Läufe auslösen).
+
+name: Agent · Planner
+
+on:
+  issues:
+    types: [opened]
+
+concurrency:
+  group: agent-planner
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    if: >-
+      github.event.issue.user.login == github.repository_owner &&
+      contains(github.event.issue.labels.*.name, 'status:inbox') &&
+      contains(github.event.issue.labels.*.name, 'source:human')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    env:
+      ISSUE: ${{ github.event.issue.number }}
+      REPO: ${{ github.repository }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Planner (Abacus)
+        id: plan
+        env:
+          ABACUS_API_KEY: ${{ secrets.ABACUS_API_KEY }}
+          PLANNER_MODEL: gemini-3.8-flash
+          # Issue-Text nur über Umgebungsvariablen, nie in Shell-Befehle eingesetzt.
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: node scripts/planner.mjs
+
+      - name: Kommentar und Status setzen
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERDICT: ${{ steps.plan.outputs.verdict }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$REPO" --body-file planner-comment.md
+          if [ "$VERDICT" = "REFINED" ]; then NEW="status:refined"; else NEW="status:needs-info"; fi
+          gh issue edit "$ISSUE" --repo "$REPO" --add-label "$NEW" --remove-label "status:inbox"
+
+      - name: Fehler melden
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "$ISSUE" --repo "$REPO" \
+            --body "Planner-Lauf fehlgeschlagen, das Issue bleibt in der Inbox. Details: $RUN_URL"
