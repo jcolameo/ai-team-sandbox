@@ -1,0 +1,11 @@
+{
+  "name": "ai-team-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test",
+    "lint": "find src scripts -name '*.js' -o -name '*.mjs' | xargs -r -n1 node --check"
+  }
+}

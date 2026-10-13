@@ -1,0 +1,44 @@
+name: Befund (Agent)
+description: Von Verifier oder Agent gefundenes Problem. Landet immer in der Inbox und löst keine Arbeit aus.
+title: "[Befund] "
+labels: ["status:inbox", "source:agent", "type:finding"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Befunde werden nie automatisch umgesetzt. Nur du entscheidest, ob daraus ein Feature oder Bug wird.
+  - type: input
+    id: origin
+    attributes:
+      label: Gefunden in
+      description: PR-Nummer oder Link zum Actions-Lauf
+      placeholder: "#12 oder https://github.com/…/actions/runs/…"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Schwere
+      options:
+        - blockierend
+        - wichtig
+        - kosmetisch
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidenz
+      description: Reproduktionsschritte, Log-Auszug oder Testname. Keine Vermutung ohne Beleg.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Erwartetes Verhalten
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Vorschlag (optional)

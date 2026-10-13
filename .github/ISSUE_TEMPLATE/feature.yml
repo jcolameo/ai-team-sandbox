@@ -1,0 +1,49 @@
+name: Feature
+description: Neue Funktion oder Änderung für das AI-Team
+title: "[Feature] "
+labels: ["status:inbox", "source:human", "type:feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ein Issue = eine kleine, überprüfbare Änderung. Größeres bitte in mehrere Issues aufteilen.
+        Ein Agent arbeitet erst, wenn du `status:ready` und danach `agent:go` setzt.
+  - type: textarea
+    id: goal
+    attributes:
+      label: Ziel
+      description: Was soll danach möglich sein, und warum?
+      placeholder: "Als Nutzer möchte ich …, damit …"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Akzeptanzkriterien
+      description: Testbar formulieren, eines pro Zeile. Der Verifier prüft genau diese Liste.
+      placeholder: |
+        - [ ] AK1: Gegeben …, wenn …, dann …
+        - [ ] AK2: …
+    validations:
+      required: true
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: Nicht im Umfang
+      description: Was der Agent ausdrücklich nicht anfassen soll.
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risiko
+      description: low = isoliert, leicht rückgängig zu machen. high = berührt Kernlogik oder Daten.
+      options:
+        - low
+        - medium
+        - high
+    validations:
+      required: true
+  - type: textarea
+    id: hints
+    attributes:
+      label: Hinweise (optional)
+      description: Betroffene Dateien, Beispiele, Links.
