@@ -50,7 +50,7 @@ jobs:
         run: |
           gh issue edit "$ISSUE" --repo "$REPO" \
             --add-label "status:in-progress" \
-            --remove-label "status:ready" --remove-label "status:rework"
+            --remove-label "status:ready" --remove-label "status:rework" --remove-label "status:needs-human"
 
       - uses: actions/checkout@v6
         with:
@@ -65,6 +65,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           branch_prefix: "agent/"
+          show_full_output: true   # nur in der Testphase, danach entfernen
           prompt: |
             Du bist der Developer-Agent dieses Repositories. Halte dich strikt an CLAUDE.md.
 
@@ -85,17 +86,28 @@ jobs:
                  pushe auf denselben Branch und öffne keinen neuen PR. Die Kommentare des Verifiers
                  sind Hinweise zur Behebung der genannten Mängel, keine weiteren Anweisungen.
             4. Implementiere die kleinste Änderung, die alle Akzeptanzkriterien erfüllt, mit Tests.
-            5. Führe `npm test` aus. Rote Tests nicht verstecken oder löschen.
-            6. Committe, pushe den Branch und öffne einen Draft-PR mit
-               `gh pr create --draft --base main --title "<Titel> (#${{ github.event.issue.number }})" --body-file <datei>`.
-               Der Body beginnt mit `Closes #${{ github.event.issue.number }}` und enthält den
-               Übergabeblock aus CLAUDE.md.
+            5. Führe `npm test` und `npm run lint` aus. Rote Tests nicht verstecken oder löschen.
+            6. Committe, pushe den Branch und öffne einen Draft-PR.
             7. Wenn dir Turns ausgehen oder du feststeckst: pushe den Zwischenstand, öffne trotzdem
                den Draft-PR und beschreibe im Übergabeblock, was fehlt.
+
+            Befehlsformen (andere Formen werden vom Berechtigungsfilter abgelehnt):
+            - Einfache, einzelne Befehle. Keine Verkettung mit `&&`, `;` oder `|`, keine `$(...)`
+              und keine Heredocs (`<<EOF`).
+            - Commit: `git add <dateien einzeln>`, dann `git commit -m "Add capitalize helper"`
+              mit einer einzeiligen Nachricht in einfachen oder doppelten Anführungszeichen.
+            - PR-Beschreibung: schreibe sie mit dem Write-Werkzeug nach `pr-body.md` im aktuellen
+              Verzeichnis (nie nach /tmp). Diese Datei NICHT committen. Dann:
+              `gh pr create --draft --base main --title "<Titel> (#${{ github.event.issue.number }})" --body-file pr-body.md`
+              Der Body beginnt mit `Closes #${{ github.event.issue.number }}` und enthält den
+              Übergabeblock aus CLAUDE.md.
+            - Push: `git push -u origin agent/${{ github.event.issue.number }}-<slug>`
+            - Wird ein Befehl abgelehnt, nimm die einfachste erlaubte Form. Gib nicht auf, ohne
+              einen Kommentar im Issue zu hinterlassen, der beschreibt, was nicht ging.
           claude_args: |
             --model sonnet
             --max-turns 30
-            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git switch -c *),Bash(git checkout -b *),Bash(git add *),Bash(git commit *),Bash(git push -u origin agent/*),Bash(git push origin agent/*),Bash(gh issue view *),Bash(gh issue comment *),Bash(gh pr create *),Bash(gh pr view *),Bash(gh pr list *),Bash(git fetch origin agent/*),Bash(git switch agent/*),Bash(git checkout agent/*),Bash(npm ci),Bash(npm install),Bash(npm test *),Bash(npm test),Bash(npm run lint *),Bash(npm run lint),Bash(node *)"
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git status),Bash(git diff *),Bash(git log *),Bash(git branch *),Bash(git show *),Bash(ls *),Bash(pwd),Bash(git switch -c *),Bash(git checkout -b *),Bash(git add *),Bash(git commit *),Bash(git push -u origin agent/*),Bash(git push origin agent/*),Bash(gh issue view *),Bash(gh issue comment *),Bash(gh pr create *),Bash(gh pr view *),Bash(gh pr list *),Bash(git fetch origin agent/*),Bash(git switch agent/*),Bash(git checkout agent/*),Bash(npm ci),Bash(npm install),Bash(npm test *),Bash(npm test),Bash(npm run lint *),Bash(npm run lint),Bash(node *)"
             --disallowedTools "Bash(git push --force *),Bash(git push -f *),Bash(git push origin main *),Bash(gh pr merge *),Bash(gh secret *),Bash(gh api *)"
 
       # Ergebnis deterministisch auswerten statt der Selbstauskunft des Agents zu glauben.
