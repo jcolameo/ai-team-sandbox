@@ -11,8 +11,8 @@
 name: Dev debug
 
 on:
-  push:
-    branches: ['chore/dev-debug']
+  pull_request:
+    types: [opened]
 
 # Nur ein Developer-Lauf gleichzeitig, damit das Pro-Kontingent nicht parallel verbraucht wird.
 # Achtung: GitHub hält pro Gruppe nur EINEN wartenden Lauf. Labelst du drei Issues direkt
