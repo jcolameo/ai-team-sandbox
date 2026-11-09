@@ -4,14 +4,17 @@ Spielwiese für ein kleines AI-Entwicklungsteam auf GitHub. Der Mensch (@jcolame
 
 ## Ablauf
 
-```
-Du: Issue anlegen (Formular "Feature")
-  └─ Planner (Abacus)        kommentiert Rückfragen oder eine Spezifikation
-Du: status:ready, danach agent:go
-  └─ Developer (Claude Code) setzt um, öffnet einen Draft-PR
-  └─ CI                      Lint und Tests
-  └─ Verifier (Abacus)       prüft den PR unabhängig, empfiehlt Freigabe oder Änderungen
-Du: Merge
+```mermaid
+flowchart TD
+  A[Issue anlegen] --> B[Planner: Spec oder Rückfragen]
+  B --> C[Mensch prüft und gibt frei<br/>status:ready + agent:go]
+  C --> D[Developer setzt um<br/>und öffnet einen Draft-PR]
+  D --> E[CI: Lint und Tests]
+  E -->|nur bei grüner CI| F[Verifier prüft unabhängig]
+  F --> G{Freigabe empfohlen?}
+  G -->|Ja| H[Mensch mergt]
+  G -->|Nein: Nachbesserung| I[Mensch gibt neuen Lauf frei<br/>status:ready + agent:go]
+  I --> D
 ```
 
 Mehr passiert nicht automatisch. Nach jedem Schritt wartet das System auf dich oder auf die CI.
